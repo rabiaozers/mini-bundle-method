@@ -22,29 +22,29 @@ def model(demet, x):
     # Elimizdeki tüm kesilerin x'teki değerlerini hesapla, en büyüğünü seç.
     # Bu bize fonksiyonun alt sınır (yaklaşık) modelini verir.
     return max(kesi_degeri(k, x) for k in demet)  
-
-def yeni_nokta(demet, merkez, t):
-    # Model değeri + proximal ceza (merkezden fazla uzaklaşmamayı sağlar) 
-    # Bu toplamı minimize eden yeni x adayını (grid search ile) bulur.
+def yeni_nokta_grid(demet, merkez, t):
+    # Hakem: model + cezayı merkez±10 aralığında 0.01 adımla tarar (yavaş ama güvenilir)
     en_iyi_x = merkez
-    en_kucuk = model(demet, merkez) 
-    
-    x = merkez - 10  #merkezin 10 birim solundan
-    while x <= merkez + 10: #"x değeri, merkezin 10 birim sağına ulaşana kadar hesaplama yapmaya devam et, orayı geçme
+    en_kucuk = model(demet, merkez)
+    x = merkez - 10
+    while x <= merkez + 10:
         toplam = model(demet, x) + ((x - merkez) ** 2) / (2 * t)
         if toplam < en_kucuk:
             en_kucuk = toplam
             en_iyi_x = x
         x = x + 0.01
-
-    return en_iyi_x
+    return en_iyi_x 
 
 def yeni_nokta_scipy(demet, merkez, t):
     def hedef(x):
         return model(demet, x) + ((x - merkez) ** 2) / (2 * t)
+    #modelin degeri + merkezden uzaklasma cezasi
 
     sonuc = minimize_scalar(hedef, bounds=(merkez - 10, merkez + 10), method='bounded')
+    #x minimumu bulyor. merkez -10 10 araliginda bound belirliyoruz 
     return sonuc.x
+#sonuc.x: minimize_scalar bir obje döndürür
+#  .x özelliği, fonksiyonu minimum yapan ideal x değeridir.
 
 def bundle_calistir(baslangic_merkez, baslangic_t, max_tur):
     merkez = baslangic_merkez
@@ -90,5 +90,5 @@ if __name__ == "__main__":
     print("Bulunan minimum noktası:", sonuc)
 
     demet = [kesi_yap(3)]
-    print("grid :", yeni_nokta(demet, 3, 1))
+    print("grid :", yeni_nokta_grid(demet, 3, 1))
     print("scipy:", yeni_nokta_scipy(demet, 3, 1))
