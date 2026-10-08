@@ -1,64 +1,84 @@
 def f(x):
-    return x ** 2
+    # Köşeli fonksiyon: x=1'de kırılma (kink) var. Minimum noktası x=1, değeri -1.
+    return max(-2 * x + 1, x - 2)
 
 def subgradient(x):
-    return 2 * x   #fonksiyon turevlenebilir oldugu icin graident aslinda bu smooth fonksiyon
+    if x <= 1: 
+        return -2  # Sol tarafın eğimi
+    # doğru denklemi $-2x + 1$'dir. Denklemin katsayısına baktığımızda bu bölgedeki türevin (eğimin) -2 olduğunu görürüz
+    else:
+        return 1   # Sağ tarafın eğimi
 
+    
 def kesi_yap(xi):
     return (xi, f(xi), subgradient(xi)) 
-#o noktaya git xi=3 tum noktalari al f3 9(fonk degeri) gi=6(egim)  xi=3(bilgiyi aldigimiz nokta)
 
-def kesi_degeri(kesi,x):
+def kesi_degeri(kesi, x):
     xi, fi, gi = kesi
     return fi + gi * (x - xi)
-#kesiyi olusturuyoruz l(x) = f(xi) + gi(x - xi)  kesiyi olusturuyoruz 6x−9
 
-def model(demet,x):
+def model(demet, x):
+    # Elimizdeki tüm kesilerin x'teki değerlerini hesapla, en büyüğünü seç.
+    # Bu bize fonksiyonun alt sınır (yaklaşık) modelini verir.
     return max(kesi_degeri(k, x) for k in demet)  
-#kesilerden en buyugunu sec 
 
 def yeni_nokta(demet, merkez, t):
+    # Model değeri + proximal ceza (merkezden fazla uzaklaşmamayı sağlar) 
+    # Bu toplamı minimize eden yeni x adayını (grid search ile) bulur.
     en_iyi_x = merkez
     en_kucuk = model(demet, merkez) 
-    #Merkezde (merkez − merkez)² = 0, yani ceza sıfır
-    #baslangicta x=3 aldik en iyi =3
-
-    x = merkez - 10 
-    #aslında merkezin 10 solundan başlayıp 10 sağına kadar, 0.01'er adımla
-    while x <= merkez + 10:
-        toplam =  model(demet, x) + (x - merkez) ** 2 / (2 * t)
-        #model + proximal ceza 
-        #model(demet, x) -- m(x) fonksiyon burada en azindan yaklasik olarak ne seviyede
-        # (x-merkez) ** 2 / (2 * t) -- proximal ceza fonksiyonu
-        #2t ye bolmek napiyor merkezew daha bagli kalmasini sagliyor 2 ile
+    
+    x = merkez - 10  #merkezin 10 birim solundan
+    while x <= merkez + 10: #"x değeri, merkezin 10 birim sağına ulaşana kadar hesaplama yapmaya devam et, orayı geçme
+        toplam = model(demet, x) + ((x - merkez) ** 2) / (2 * t)
         if toplam < en_kucuk:
             en_kucuk = toplam
             en_iyi_x = x
         x = x + 0.01
 
     return en_iyi_x
-    
 
-merkez = 10
-t = 0.1
-demet = [kesi_yap(merkez)] #merkezde ölçtüğün kesi. Hiç kesi olmadan model olmaz.
 
-for i in range(10):
-    x = yeni_nokta(demet, merkez, t)
-    #aday noktayi bul
-    vaat= f(merkez) - model(demet,x)
-    if vaat < 0.000001:
-        print("durdu, tur:", i, "merkez:", merkez)
-        break
-    demet.append(kesi_yap(x))
-    #sonuc ne olursa olsun ekle 
-    if f(x) < f(merkez):  #aday suan durdugun yerden daha alcak mi alcaksa merkezi aday yani x yap 
-        merkez = x
-        #t = t * 2 
-        print(i, x, t, "serious")
-    else:
-        #t = t / 2
-        print(i, x, t , "null")
 
-    #Tur 0: döngü yeni_nokta'ya 1 kesi + merkez 3 verdi → öneri −3 → kesi eklendi, merkez kaldı.
-#Tur 1: döngü yeni_nokta'ya 2 kesi + merkez 3 verdi → bu sefer öneri 0 → kesi eklendi, merkez 0'a taşındı.
+def bundle_calistir(baslangic_merkez, baslangic_t, max_tur):
+    merkez = baslangic_merkez
+    t = baslangic_t
+    demet = [kesi_yap(merkez)] # Hiç kesi olmadan model olmaz, başlangıç ölçümünü ekliyoruz.
+
+    for i in range(max_tur):
+        
+        # Demeti, merkezi ve t'yi kullanarak modelin bize önerdiği en iyi aday noktayı (x) bul.
+        x = yeni_nokta(demet, merkez, t)
+        
+        # ADIM 2: DURMA KURALI (VAAT KONTROLÜ)
+        # Mevcut konumumuz ile modelin x'te vaat ettiği değer arasındaki fark çok küçükse dur.
+        vaat = f(merkez) - model(demet, x)
+        if vaat < 0.000001:
+            print(f"\n--> Algoritma durdu! Tur: {i}, Merkez: {merkez}")
+            break
+            
+        
+        # Gittiğimiz x noktasında gerçek durumu ölç ve sonucu ne olursa olsun demete ekle.
+        demet.append(kesi_yap(x))
+        
+        #{f}(x) + {1}/ 2t} (x - xc) kare  
+        # Aday nokta x, gerçekten şu anki merkezimizden daha mı alçakta?
+        if f(x) < f(merkez):  
+            # Evet, daha alçakta! Merkezimizi x'e taşıyalım (Serious Step)
+            t = t * 2
+            merkez = x
+            print(f"Tur {i:2d} | x: {x:.4f} | t: {t} | Karar: SERIOUS (Taşındı)")
+        else:
+            t=t/ 2
+            # Hayır. Merkez yerinde kalır ama demet yeni bir kesi öğrendiği için model akıllandı (Null Step)
+            print(f"Tur {i:2d} | x: {x:.4f} | t: {t} | Karar: NULL (Sabit kaldı)")
+            
+    #
+    # Döngü bittikten (veya break ile kırıldıktan) sonra ulaşılan en iyi merkezi geri döndür.
+    return merkez
+
+if __name__ == "__main__":
+    print("Algoritma Başlıyor...\n" + "-"*45)
+    sonuc = bundle_calistir(3, 0.1, 30)
+    print("-" * 45)
+    print("Bulunan minimum noktası:", sonuc)
