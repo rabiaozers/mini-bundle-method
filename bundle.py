@@ -1,3 +1,4 @@
+from scipy.optimize import minimize_scalar
 def f(x):
     # Köşeli fonksiyon: x=1'de kırılma (kink) var. Minimum noktası x=1, değeri -1.
     return max(-2 * x + 1, x - 2)
@@ -38,7 +39,12 @@ def yeni_nokta(demet, merkez, t):
 
     return en_iyi_x
 
+def yeni_nokta_scipy(demet, merkez, t):
+    def hedef(x):
+        return model(demet, x) + ((x - merkez) ** 2) / (2 * t)
 
+    sonuc = minimize_scalar(hedef, bounds=(merkez - 10, merkez + 10), method='bounded')
+    return sonuc.x
 
 def bundle_calistir(baslangic_merkez, baslangic_t, max_tur):
     merkez = baslangic_merkez
@@ -48,7 +54,7 @@ def bundle_calistir(baslangic_merkez, baslangic_t, max_tur):
     for i in range(max_tur):
         
         # Demeti, merkezi ve t'yi kullanarak modelin bize önerdiği en iyi aday noktayı (x) bul.
-        x = yeni_nokta(demet, merkez, t)
+        x = yeni_nokta_scipy(demet, merkez, t)
         
         # ADIM 2: DURMA KURALI (VAAT KONTROLÜ)
         # Mevcut konumumuz ile modelin x'te vaat ettiği değer arasındaki fark çok küçükse dur.
@@ -82,3 +88,7 @@ if __name__ == "__main__":
     sonuc = bundle_calistir(3, 0.1, 30)
     print("-" * 45)
     print("Bulunan minimum noktası:", sonuc)
+
+    demet = [kesi_yap(3)]
+    print("grid :", yeni_nokta(demet, 3, 1))
+    print("scipy:", yeni_nokta_scipy(demet, 3, 1))
