@@ -45,6 +45,35 @@ def yeni_nokta_scipy(demet, merkez, t):
     return sonuc.x
 #sonuc.x: minimize_scalar bir obje döndürür
 #  .x özelliği, fonksiyonu minimum yapan ideal x değeridir.
+def yeni_nokta_aktif(demet, merkez, t):
+    def hedef(x):
+        return model(demet, x) + (x - merkez) ** 2 / (2 * t)
+
+    adaylar = []
+
+    # 1) Her kesi için: "sadece bu kesi aktif" olsaydı nereye giderdik?
+    for kesi in demet:
+        xi, fi, gi = kesi
+        adaylar.append(merkez - t * gi)
+
+    # 2) Her iki kesinin kesişimi: "ikisi birden aktif" olsaydı
+       # 2) Her iki kesinin kesişimi: "ikisi birden aktif" olsaydı
+    for i in range(len(demet)):
+        for j in range(i + 1, len(demet)):
+            nokta1, deger1, egim1 = demet[i]
+            nokta2, deger2, egim2 = demet[j]
+            if egim1 == egim2:
+                continue   # paralel doğrular, kesişmezler
+            sabit1 = deger1 - egim1 * nokta1
+            sabit2 = deger2 - egim2 * nokta2
+            adaylar.append((sabit2 - sabit1) / (egim1 - egim2))
+
+    # 3) En iyi adayı seç: hedef'i en küçük olan
+    en_iyi = adaylar[0]
+    for x in adaylar:
+        if hedef(x) < hedef(en_iyi):
+            en_iyi = x
+    return en_iyi
 
 def bundle_calistir(baslangic_merkez, baslangic_t, max_tur):
     merkez = baslangic_merkez
@@ -92,3 +121,8 @@ if __name__ == "__main__":
     demet = [kesi_yap(3)]
     print("grid :", yeni_nokta_grid(demet, 3, 1))
     print("scipy:", yeni_nokta_scipy(demet, 3, 1))
+    demet = [kesi_yap(3)]
+    print("aktif:", yeni_nokta_aktif(demet, 3, 1))
+    demet2 = [kesi_yap(3), kesi_yap(-1)]
+    print("grid  (2 kesi):", yeni_nokta_grid(demet2, 0.5, 1))
+    print("aktif (2 kesi):", yeni_nokta_aktif(demet2, 0.5, 1))
