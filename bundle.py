@@ -1,128 +1,139 @@
-from scipy.optimize import minimize_scalar
+# Mini bundle method (tek boyutlu)
+# Köşeli bir fonksiyonun minimumunu, kesileri biriktirip
+# "model + tasma" problemini kendi aktif-küme çözücümüzle çözerek bulur.
+
+
+# ─────────────────────────────────────────────
+# 1) Problem: minimumunu aradığımız fonksiyon
+# ─────────────────────────────────────────────
+
 def f(x):
-    # Köşeli fonksiyon: x=1'de kırılma (kink) var. Minimum noktası x=1, değeri -1.
+    # Köşeli fonksiyon: x = 1'de kırılma var. Minimum noktası x = 1, değeri -1.
     return max(-2 * x + 1, x - 2)
 
-def subgradient(x):
-    if x <= 1: 
-        return -2  # Sol tarafın eğimi
-    # doğru denklemi $-2x + 1$'dir. Denklemin katsayısına baktığımızda bu bölgedeki türevin (eğimin) -2 olduğunu görürüz
-    else:
-        return 1   # Sağ tarafın eğimi
 
-    
+def subgradient(x):
+    # Köşenin hangi tarafındayım? O taraftaki doğrunun eğimini döndür.
+    # Tam köşede (x = 1) alt diferansiyel [-2, 1]; içinden -2'yi seçiyoruz.
+    if x <= 1:
+        return -2   # sol taraf: -2x + 1
+    else:
+        return 1    # sağ taraf: x - 2
+
+
+# ─────────────────────────────────────────────
+# 2) Kesiler ve model (harita)
+# ─────────────────────────────────────────────
+
 def kesi_yap(xi):
-    return (xi, f(xi), subgradient(xi)) 
+    # x = xi noktasında ölçüm yap, üç sayıyı paketle: (nokta, değer, eğim)
+    return (xi, f(xi), subgradient(xi))
+
 
 def kesi_degeri(kesi, x):
+    # Paketten doğruyu üret ve x'teki yüksekliğini döndür:
+    # kesi(x) = değer + eğim * (x - nokta)
     xi, fi, gi = kesi
     return fi + gi * (x - xi)
 
+
 def model(demet, x):
-    # Elimizdeki tüm kesilerin x'teki değerlerini hesapla, en büyüğünü seç.
-    # Bu bize fonksiyonun alt sınır (yaklaşık) modelini verir.
-    return max(kesi_degeri(k, x) for k in demet)  
-def yeni_nokta_grid(demet, merkez, t):
-    # Hakem: model + cezayı merkez±10 aralığında 0.01 adımla tarar (yavaş ama güvenilir)
-    en_iyi_x = merkez
-    en_kucuk = model(demet, merkez)
-    x = merkez - 10
-    while x <= merkez + 10:
-        toplam = model(demet, x) + ((x - merkez) ** 2) / (2 * t)
-        if toplam < en_kucuk:
-            en_kucuk = toplam
-            en_iyi_x = x
-        x = x + 0.01
-    return en_iyi_x 
+    # Bütün kesilerin x'teki yüksekliklerinin en büyüğü.
+    # Gerçek f'nin hep altında kalan (iyimser) bir harita.
+    return max(kesi_degeri(k, x) for k in demet)
 
-def yeni_nokta_scipy(demet, merkez, t):
-    def hedef(x):
-        return model(demet, x) + ((x - merkez) ** 2) / (2 * t)
-    #modelin degeri + merkezden uzaklasma cezasi
 
-    sonuc = minimize_scalar(hedef, bounds=(merkez - 10, merkez + 10), method='bounded')
-    #x minimumu bulyor. merkez -10 10 araliginda bound belirliyoruz 
-    return sonuc.x
-#sonuc.x: minimize_scalar bir obje döndürür
-#  .x özelliği, fonksiyonu minimum yapan ideal x değeridir.
+# ─────────────────────────────────────────────
+# 3) Master problem: "bir sonraki nereye gideyim?"
+#    küçült: model(x) + (x - merkez)^2 / (2t)
+# ─────────────────────────────────────────────
+
 def yeni_nokta_aktif(demet, merkez, t):
+    # Kendi çözücümüz: bütün mantıklı adayları listele, en düşük puanlıyı seç.
+
+    # Parça 0: puan makinesi (harita + tasma)
     def hedef(x):
         return model(demet, x) + (x - merkez) ** 2 / (2 * t)
 
     adaylar = []
 
-    # 1) Her kesi için: "sadece bu kesi aktif" olsaydı nereye giderdik?
+    # Parça 1: "sadece bu kesi aktif olsaydı" -> merkez - t * eğim
     for kesi in demet:
         xi, fi, gi = kesi
         adaylar.append(merkez - t * gi)
 
-    # 2) Her iki kesinin kesişimi: "ikisi birden aktif" olsaydı
-       # 2) Her iki kesinin kesişimi: "ikisi birden aktif" olsaydı
+    # Parça 2: "iki kesi birden aktif olsaydı" -> iki doğrunun kesişimi
     for i in range(len(demet)):
         for j in range(i + 1, len(demet)):
             nokta1, deger1, egim1 = demet[i]
             nokta2, deger2, egim2 = demet[j]
             if egim1 == egim2:
                 continue   # paralel doğrular, kesişmezler
-            sabit1 = deger1 - egim1 * nokta1
-            sabit2 = deger2 - egim2 * nokta2
+            sabit1 = deger1 - egim1 * nokta1   # doğru: egim1 * x + sabit1
+            sabit2 = deger2 - egim2 * nokta2   # doğru: egim2 * x + sabit2
             adaylar.append((sabit2 - sabit1) / (egim1 - egim2))
 
-    # 3) En iyi adayı seç: hedef'i en küçük olan
+    # Parça 3: puanı en küçük adayı seç
     en_iyi = adaylar[0]
     for x in adaylar:
         if hedef(x) < hedef(en_iyi):
             en_iyi = x
     return en_iyi
 
+
+def yeni_nokta_grid(demet, merkez, t):
+    # HAKEM: aynı problemi merkez ± 10 aralığında 0.01 adımla tarayarak çözer.
+    # Yavaş ama içi tamamen bilinen bir yöntem; sadece testlerde kullanılır.
+    en_iyi_x = merkez
+    en_kucuk = model(demet, merkez)
+    x = merkez - 10
+    while x <= merkez + 10:
+        toplam = model(demet, x) + (x - merkez) ** 2 / (2 * t)
+        if toplam < en_kucuk:
+            en_kucuk = toplam
+            en_iyi_x = x
+        x = x + 0.01
+    return en_iyi_x
+
+
+# ─────────────────────────────────────────────
+# 4) Ana algoritma
+# ─────────────────────────────────────────────
+
 def bundle_calistir(baslangic_merkez, baslangic_t, max_tur):
     merkez = baslangic_merkez
     t = baslangic_t
-    demet = [kesi_yap(merkez)] # Hiç kesi olmadan model olmaz, başlangıç ölçümünü ekliyoruz.
+    demet = [kesi_yap(merkez)]   # hiç kesi olmadan model olmaz: ilk ölçüm
 
     for i in range(max_tur):
-        
-        # Demeti, merkezi ve t'yi kullanarak modelin bize önerdiği en iyi aday noktayı (x) bul.
-        x = yeni_nokta_scipy(demet, merkez, t)
-        
-        # ADIM 2: DURMA KURALI (VAAT KONTROLÜ)
-        # Mevcut konumumuz ile modelin x'te vaat ettiği değer arasındaki fark çok küçükse dur.
+        # ADAY: haritaya ve tasmaya bakarak bir sonraki noktayı öner
+        x = yeni_nokta_aktif(demet, merkez, t)
+
+        # DUR MU?: harita (iyimser olduğu halde) iyileşme vaat etmiyorsa dur
         vaat = f(merkez) - model(demet, x)
         if vaat < 0.000001:
             print(f"\n--> Algoritma durdu! Tur: {i}, Merkez: {merkez}")
             break
-            
-        
-        # Gittiğimiz x noktasında gerçek durumu ölç ve sonucu ne olursa olsun demete ekle.
+
+        # ÖLÇ: adaya git, gerçek değeri ve eğimi ölç, deftere ekle
         demet.append(kesi_yap(x))
-        
-        #{f}(x) + {1}/ 2t} (x - xc) kare  
-        # Aday nokta x, gerçekten şu anki merkezimizden daha mı alçakta?
-        if f(x) < f(merkez):  
-            # Evet, daha alçakta! Merkezimizi x'e taşıyalım (Serious Step)
-            t = t * 2
+
+        # KARAR: aday gerçekten daha alçak mı?
+        if f(x) < f(merkez):
+            # Serious step: taşın, harita güvenilir çıktı -> tasmayı uzat
             merkez = x
+            t = t * 2
             print(f"Tur {i:2d} | x: {x:.4f} | t: {t} | Karar: SERIOUS (Taşındı)")
         else:
-            t=t/ 2
-            # Hayır. Merkez yerinde kalır ama demet yeni bir kesi öğrendiği için model akıllandı (Null Step)
+            # Null step: yerinde kal, harita yanıldı -> tasmayı kısalt
+            t = t / 2
             print(f"Tur {i:2d} | x: {x:.4f} | t: {t} | Karar: NULL (Sabit kaldı)")
-            
-    #
-    # Döngü bittikten (veya break ile kırıldıktan) sonra ulaşılan en iyi merkezi geri döndür.
+
     return merkez
 
+
 if __name__ == "__main__":
-    print("Algoritma Başlıyor...\n" + "-"*45)
+    print("Algoritma Başlıyor...\n" + "-" * 45)
     sonuc = bundle_calistir(3, 0.1, 30)
     print("-" * 45)
     print("Bulunan minimum noktası:", sonuc)
-
-    demet = [kesi_yap(3)]
-    print("grid :", yeni_nokta_grid(demet, 3, 1))
-    print("scipy:", yeni_nokta_scipy(demet, 3, 1))
-    demet = [kesi_yap(3)]
-    print("aktif:", yeni_nokta_aktif(demet, 3, 1))
-    demet2 = [kesi_yap(3), kesi_yap(-1)]
-    print("grid  (2 kesi):", yeni_nokta_grid(demet2, 0.5, 1))
-    print("aktif (2 kesi):", yeni_nokta_aktif(demet2, 0.5, 1))
