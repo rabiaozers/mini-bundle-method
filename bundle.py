@@ -96,15 +96,11 @@ def yeni_nokta_grid(demet, merkez, t):
     return en_iyi_x
 
 
-# ─────────────────────────────────────────────
-# 4) Ana algoritma
-# ─────────────────────────────────────────────
-
 def bundle_calistir(baslangic_merkez, baslangic_t, max_tur):
     merkez = baslangic_merkez
     t = baslangic_t
     demet = [kesi_yap(merkez)]   # hiç kesi olmadan model olmaz: ilk ölçüm
-
+    gecmis = [merkez]
     for i in range(max_tur):
         # ADAY: haritaya ve tasmaya bakarak bir sonraki noktayı öner
         x = yeni_nokta_aktif(demet, merkez, t)
@@ -124,16 +120,18 @@ def bundle_calistir(baslangic_merkez, baslangic_t, max_tur):
             merkez = x
             t = t * 2
             print(f"Tur {i:2d} | x: {x:.4f} | t: {t} | Karar: SERIOUS (Taşındı)")
+            gecmis.append(merkez)
         else:
             # Null step: yerinde kal, harita yanıldı -> tasmayı kısalt
             t = t / 2
             print(f"Tur {i:2d} | x: {x:.4f} | t: {t} | Karar: NULL (Sabit kaldı)")
+            gecmis.append(merkez)
 
-    return merkez
+    return gecmis
 
 
 if __name__ == "__main__":
     print("Algoritma Başlıyor...\n" + "-" * 45)
     sonuc = bundle_calistir(3, 0.1, 30)
     print("-" * 45)
-    print("Bulunan minimum noktası:", sonuc)
+    print("Bulunan minimum noktası:", sonuc[-1])

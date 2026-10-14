@@ -4,7 +4,7 @@ from bundle import bundle_calistir, kesi_yap, yeni_nokta_grid, yeni_nokta_aktif
 def test_kink_minimum_bulma():
     # Algoritma köşeli fonksiyonun minimumunu (x = 1) bulmalı
     sonuc = bundle_calistir(3, 0.1, 30)
-    assert abs(sonuc - 1) < 0.001
+    assert abs(sonuc[-1] - 1) < 0.001
 
 
 def test_tek_kesi_subgradient_adimi():
