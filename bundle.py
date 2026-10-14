@@ -1,32 +1,16 @@
 # Mini bundle method (tek boyutlu)
-# Köşeli bir fonksiyonun minimumunu, kesileri biriktirip
-# "model + tasma" problemini kendi aktif-küme çözücümüzle çözerek bulur.
+# Herhangi bir köşeli, dışbükey fonksiyonun minimumunu bulur.
+# Fonksiyonun kendisi DIŞARIDAN verilir: f ve subgradient parametre olarak gelir.
+# Bu dosyada hiçbir problem yok, sadece algoritma var.
 
 
 # ─────────────────────────────────────────────
-# 1) Problem: minimumunu aradığımız fonksiyon
+# 1) Kesiler ve model (harita)
 # ─────────────────────────────────────────────
 
-def f(x):
-    # Köşeli fonksiyon: x = 1'de kırılma var. Minimum noktası x = 1, değeri -1.
-    return max(-2 * x + 1, x - 2)
-
-
-def subgradient(x):
-    # Köşenin hangi tarafındayım? O taraftaki doğrunun eğimini döndür.
-    # Tam köşede (x = 1) alt diferansiyel [-2, 1]; içinden -2'yi seçiyoruz.
-    if x <= 1:
-        return -2   # sol taraf: -2x + 1
-    else:
-        return 1    # sağ taraf: x - 2
-
-
-# ─────────────────────────────────────────────
-# 2) Kesiler ve model (harita)
-# ─────────────────────────────────────────────
-
-def kesi_yap(xi):
+def kesi_yap(xi, f, subgradient):
     # x = xi noktasında ölçüm yap, üç sayıyı paketle: (nokta, değer, eğim)
+    # Hangi fonksiyonu ölçeceğini (f, subgradient) dışarıdan alıyor.
     return (xi, f(xi), subgradient(xi))
 
 
@@ -44,8 +28,9 @@ def model(demet, x):
 
 
 # ─────────────────────────────────────────────
-# 3) Master problem: "bir sonraki nereye gideyim?"
+# 2) Master problem: "bir sonraki nereye gideyim?"
 #    küçült: model(x) + (x - merkez)^2 / (2t)
+#    Not: bu kısım gerçek f'yi HİÇ görmüyor, sadece demetteki kesileri görüyor.
 # ─────────────────────────────────────────────
 
 def yeni_nokta_aktif(demet, merkez, t):
@@ -96,11 +81,18 @@ def yeni_nokta_grid(demet, merkez, t):
     return en_iyi_x
 
 
-def bundle_calistir(baslangic_merkez, baslangic_t, max_tur):
+# ─────────────────────────────────────────────
+# 3) Ana algoritma
+# ─────────────────────────────────────────────
+
+def bundle_calistir(f, subgradient, baslangic_merkez, baslangic_t, max_tur, yazdir=True):
+    # f, subgradient: minimumu aranan fonksiyon ve onun eğimi (dışarıdan)
+    # Döndürdüğü: her turdaki merkezlerin listesi (son eleman = bulunan minimum)
     merkez = baslangic_merkez
     t = baslangic_t
-    demet = [kesi_yap(merkez)]   # hiç kesi olmadan model olmaz: ilk ölçüm
+    demet = [kesi_yap(merkez, f, subgradient)]   # ilk ölçüm
     gecmis = [merkez]
+
     for i in range(max_tur):
         # ADAY: haritaya ve tasmaya bakarak bir sonraki noktayı öner
         x = yeni_nokta_aktif(demet, merkez, t)
@@ -108,30 +100,26 @@ def bundle_calistir(baslangic_merkez, baslangic_t, max_tur):
         # DUR MU?: harita (iyimser olduğu halde) iyileşme vaat etmiyorsa dur
         vaat = f(merkez) - model(demet, x)
         if vaat < 0.000001:
-            print(f"\n--> Algoritma durdu! Tur: {i}, Merkez: {merkez}")
+            if yazdir:
+                print(f"--> Algoritma durdu! Tur: {i}, Merkez: {merkez}")
             break
 
         # ÖLÇ: adaya git, gerçek değeri ve eğimi ölç, deftere ekle
-        demet.append(kesi_yap(x))
+        demet.append(kesi_yap(x, f, subgradient))
 
         # KARAR: aday gerçekten daha alçak mı?
         if f(x) < f(merkez):
             # Serious step: taşın, harita güvenilir çıktı -> tasmayı uzat
             merkez = x
             t = t * 2
-            print(f"Tur {i:2d} | x: {x:.4f} | t: {t} | Karar: SERIOUS (Taşındı)")
-            gecmis.append(merkez)
+            karar = "SERIOUS (Taşındı)"
         else:
             # Null step: yerinde kal, harita yanıldı -> tasmayı kısalt
             t = t / 2
-            print(f"Tur {i:2d} | x: {x:.4f} | t: {t} | Karar: NULL (Sabit kaldı)")
-            gecmis.append(merkez)
+            karar = "NULL (Sabit kaldı)"
+
+        gecmis.append(merkez)
+        if yazdir:
+            print(f"Tur {i:2d} | x: {x:.4f} | t: {t} | Karar: {karar}")
 
     return gecmis
-
-
-if __name__ == "__main__":
-    print("Algoritma Başlıyor...\n" + "-" * 45)
-    sonuc = bundle_calistir(3, 0.1, 30)
-    print("-" * 45)
-    print("Bulunan minimum noktası:", sonuc[-1])
