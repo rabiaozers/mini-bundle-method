@@ -80,7 +80,6 @@ def yeni_nokta_grid(demet, merkez, t):
         x = x + 0.01
     return en_iyi_x
 
-
 # ─────────────────────────────────────────────
 # 3) Ana algoritma
 # ─────────────────────────────────────────────
@@ -123,3 +122,6 @@ def bundle_calistir(f, subgradient, baslangic_merkez, baslangic_t, max_tur, yazd
             print(f"Tur {i:2d} | x: {x:.4f} | t: {t} | Karar: {karar}")
 
     return gecmis
+
+def dogrusallastirma_hatasi(kesi, merkez, f):
+    return f(merkez) - kesi_degeri(kesi,merkez)

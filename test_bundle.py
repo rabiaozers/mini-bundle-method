@@ -1,6 +1,5 @@
-from bundle import bundle_calistir, kesi_yap, yeni_nokta_grid, yeni_nokta_aktif
+from bundle import bundle_calistir, kesi_yap, yeni_nokta_grid, yeni_nokta_aktif, dogrusallastirma_hatasi
 import knapsack
-
 
 # ─── Test için oyuncak fonksiyon: köşe x = 1'de, minimum değeri -1 ───
 def oyuncak_f(x):
@@ -48,3 +47,8 @@ def test_knapsack_dual_minimumu():
     assert abs(lam - 2) < 0.001
     assert abs(knapsack.f(lam) - 14) < 0.001
     assert knapsack.f(lam) >= 10   # zayıf dualite
+    
+def test_dogrusallastirma_hatasi():
+    kesi = kesi_yap(3, knapsack.f, knapsack.subgradient)
+    assert dogrusallastirma_hatasi(kesi, 3, knapsack.f) == 0
+    assert dogrusallastirma_hatasi(kesi, 2, knapsack.f) == 2
