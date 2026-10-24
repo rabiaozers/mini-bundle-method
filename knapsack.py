@@ -6,7 +6,7 @@ kapasite   = 6
  
  
 def f(x):
-    # Dual fonksiyon L(λ): her eşyanın net kazancı (pozitifse) + kira hakkı
+    # Dual function L(λ): each item's net profit (if positive) + capacity rent
     toplam = 0
     for i in range(len(degerler)):
         deger = degerler[i]
@@ -17,8 +17,8 @@ def f(x):
  
  
 def subgradient(x):
-    # Eğim = kapasite - (net kazancı pozitif olan eşyaların toplam ağırlığı)
-    # Negatif: çanta taşıyor, fiyat artmalı. Pozitif: çanta boş kalıyor, fiyat düşmeli.
+    # Slope = capacity - (total weight of items with positive net profit)
+    # Negative: knapsack overflows, price should rise. Positive: space left, price should fall.
     kullanilan = 0
     for i in range(len(degerler)):
         deger = degerler[i]

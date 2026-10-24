@@ -1,12 +1,12 @@
-# Knapsack dual'ında: Proje 1'in subgradient yöntemleri vs bundle method
+# On the knapsack dual: Project 1's subgradient methods vs the bundle method
 import matplotlib.pyplot as plt
 from bundle import bundle_calistir
 from knapsack import f, subgradient
 
-F_YILDIZ = 14   # dual'ın minimum değeri (Polyak bunu bilmek zorunda)
+F_YILDIZ = 14   # minimum value of the dual (Polyak needs to know it)
 
 
-# ─── Proje 1'den: adım kuralları ve subgradient döngüsü ───
+# ─── From Project 1: step rules and subgradient loop ───
 def step_constant(x):
     return 0.2
 
@@ -34,7 +34,7 @@ def calistir(kural, x0, adim_sayisi):
     return gecmis
 
 
-# ─── Karşılaştırma ───
+# ─── Comparison ───
 x0 = 3
 adim = 30
 

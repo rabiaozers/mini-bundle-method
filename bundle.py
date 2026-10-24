@@ -1,64 +1,64 @@
-# Mini bundle method (tek boyutlu)
-# Herhangi bir köşeli, dışbükey fonksiyonun minimumunu bulur.
-# Fonksiyonun kendisi DIŞARIDAN verilir: f ve subgradient parametre olarak gelir.
-# Bu dosyada hiçbir problem yok, sadece algoritma var.
+# Mini bundle method (one-dimensional)
+# Finds the minimum of any nonsmooth convex function.
+# The function is supplied from OUTSIDE: f and subgradient are passed as parameters.
+# This file contains no problem, only the algorithm.
 
 
 # ─────────────────────────────────────────────
-# 1) Kesiler ve model (harita)
+# 1) Cuts and the model (the map)
 # ─────────────────────────────────────────────
 
 def kesi_yap(xi, f, subgradient):
-    # x = xi noktasında ölçüm yap, üç sayıyı paketle: (nokta, değer, eğim)
-    # Hangi fonksiyonu ölçeceğini (f, subgradient) dışarıdan alıyor.
+    # Evaluate at x = xi and pack three numbers: (point, value, slope)
+    # The function to evaluate (f, subgradient) is passed in from outside.
     return (xi, f(xi), subgradient(xi))
 
 
 def kesi_degeri(kesi, x):
-    # Paketten doğruyu üret ve x'teki yüksekliğini döndür:
-    # kesi(x) = değer + eğim * (x - nokta)
+    # Build the line from the cut and return its height at x:
+    # cut(x) = value + slope * (x - point)
     xi, fi, gi = kesi
     return fi + gi * (x - xi)
 
 
 def model(demet, x):
-    # Bütün kesilerin x'teki yüksekliklerinin en büyüğü.
-    # Gerçek f'nin hep altında kalan (iyimser) bir harita.
+    # The maximum height of all cuts at x.
+    # An (optimistic) map that always stays below the true f.
     return max(kesi_degeri(k, x) for k in demet)
 
 
 # ─────────────────────────────────────────────
-# 2) Master problem: "bir sonraki nereye gideyim?"
-#    küçült: model(x) + (x - merkez)^2 / (2t)
-#    Not: bu kısım gerçek f'yi HİÇ görmüyor, sadece demetteki kesileri görüyor.
+# 2) Master problem: "where should I go next?"
+#    minimize: model(x) + (x - center)^2 / (2t)
+#    Note: this part NEVER sees the true f, only the cuts in the bundle.
 # ─────────────────────────────────────────────
 
 def yeni_nokta_aktif(demet, merkez, t):
-    # Kendi çözücümüz: bütün mantıklı adayları listele, en düşük puanlıyı seç.
+    # Our own solver: list all sensible candidates, pick the lowest-scoring one.
 
-    # Parça 0: puan makinesi (harita + tasma)
+    # Part 0: scoring function (map + leash)
     def hedef(x):
         return model(demet, x) + (x - merkez) ** 2 / (2 * t)
 
     adaylar = []
 
-    # Parça 1: "sadece bu kesi aktif olsaydı" -> merkez - t * eğim
+    # Part 1: "if only this cut were active" -> center - t * slope
     for kesi in demet:
         xi, fi, gi = kesi
         adaylar.append(merkez - t * gi)
 
-    # Parça 2: "iki kesi birden aktif olsaydı" -> iki doğrunun kesişimi
+    # Part 2: "if two cuts were active together" -> intersection of the two lines
     for i in range(len(demet)):
         for j in range(i + 1, len(demet)):
             nokta1, deger1, egim1 = demet[i]
             nokta2, deger2, egim2 = demet[j]
             if egim1 == egim2:
-                continue   # paralel doğrular, kesişmezler
-            sabit1 = deger1 - egim1 * nokta1   # doğru: egim1 * x + sabit1
-            sabit2 = deger2 - egim2 * nokta2   # doğru: egim2 * x + sabit2
+                continue   # parallel lines never intersect
+            sabit1 = deger1 - egim1 * nokta1   # line: egim1 * x + sabit1
+            sabit2 = deger2 - egim2 * nokta2   # line: egim2 * x + sabit2
             adaylar.append((sabit2 - sabit1) / (egim1 - egim2))
 
-    # Parça 3: puanı en küçük adayı seç
+    # Part 3: pick the candidate with the lowest score
     en_iyi = adaylar[0]
     for x in adaylar:
         if hedef(x) < hedef(en_iyi):
@@ -67,8 +67,8 @@ def yeni_nokta_aktif(demet, merkez, t):
 
 
 def yeni_nokta_grid(demet, merkez, t):
-    # HAKEM: aynı problemi merkez ± 10 aralığında 0.01 adımla tarayarak çözer.
-    # Yavaş ama içi tamamen bilinen bir yöntem; sadece testlerde kullanılır.
+    # REFEREE: solves the same problem by scanning center ± 10 in steps of 0.01.
+    # Slow but fully transparent; used only in tests.
     en_iyi_x = merkez
     en_kucuk = model(demet, merkez)
     x = merkez - 10
@@ -81,39 +81,39 @@ def yeni_nokta_grid(demet, merkez, t):
     return en_iyi_x
 
 # ─────────────────────────────────────────────
-# 3) Ana algoritma
+# 3) Main algorithm
 # ─────────────────────────────────────────────
 
 def bundle_calistir(f, subgradient, baslangic_merkez, baslangic_t, max_tur, yazdir=True):
-    # f, subgradient: minimumu aranan fonksiyon ve onun eğimi (dışarıdan)
-    # Döndürdüğü: her turdaki merkezlerin listesi (son eleman = bulunan minimum)
+    # f, subgradient: the function to minimize and its slope (from outside)
+    # Returns: the list of centers per iteration (last element = minimum found)
     merkez = baslangic_merkez
     t = baslangic_t
-    demet = [kesi_yap(merkez, f, subgradient)]   # ilk ölçüm
+    demet = [kesi_yap(merkez, f, subgradient)]   # first evaluation
     gecmis = [merkez]
 
     for i in range(max_tur):
-        # ADAY: haritaya ve tasmaya bakarak bir sonraki noktayı öner
+        # CANDIDATE: propose the next point using the map and the leash
         x = yeni_nokta_aktif(demet, merkez, t)
 
-        # DUR MU?: harita (iyimser olduğu halde) iyileşme vaat etmiyorsa dur
+        # STOP?: if the map (even though optimistic) promises no improvement, stop
         vaat = f(merkez) - model(demet, x)
         if vaat < 0.000001:
             if yazdir:
                 print(f"--> Algoritma durdu! Tur: {i}, Merkez: {merkez}")
             break
 
-        # ÖLÇ: adaya git, gerçek değeri ve eğimi ölç, deftere ekle
+        # EVALUATE: go to the candidate, measure true value and slope, add to the bundle
         demet.append(kesi_yap(x, f, subgradient))
 
-        # KARAR: aday gerçekten daha alçak mı?
+        # DECISION: is the candidate really lower?
         if f(x) < f(merkez):
-            # Serious step: taşın, harita güvenilir çıktı -> tasmayı uzat
+            # Serious step: move, the map was reliable -> lengthen the leash
             merkez = x
             t = t * 2
             karar = "SERIOUS (Taşındı)"
         else:
-            # Null step: yerinde kal, harita yanıldı -> tasmayı kısalt
+            # Null step: stay, the map was wrong -> shorten the leash
             t = t / 2
             karar = "NULL (Sabit kaldı)"
 
@@ -123,5 +123,8 @@ def bundle_calistir(f, subgradient, baslangic_merkez, baslangic_t, max_tur, yazd
 
     return gecmis
 
+
 def dogrusallastirma_hatasi(kesi, merkez, f):
-    return f(merkez) - kesi_degeri(kesi,merkez)
+    # Linearization error: how far the cut lies below the true f at the center (always >= 0)
+    # 0 = fresh cut, large = stale cut
+    return f(merkez) - kesi_degeri(kesi, merkez)
