@@ -4,7 +4,9 @@ A from-scratch proximal bundle method in Python, applied to the Lagrangian dual
 of a small knapsack problem and compared with the subgradient method.
 No optimization libraries: the master problem is solved by my own exact solver.
 
-![Subgradient rules vs bundle on the knapsack dual](karsilastirma.png)
+[![tests](https://github.com/rabiaozers/mini-bundle-method/actions/workflows/tests.yml/badge.svg)](https://github.com/rabiaozers/mini-bundle-method/actions/workflows/tests.yml)
+
+![Subgradient rules vs bundle on the knapsack dual](comparison.png)
 
 ## Problem: knapsack Lagrangian dual
 
@@ -59,19 +61,22 @@ solvers such as SMS++ optimize Lagrangian duals.
 
 - `bundle.py`: the algorithm only; `f` and `subgradient` are passed in
 - `knapsack.py`: the knapsack dual
-- `karsilastirma.py`: comparison with Polyak, constant and diminishing steps
+- `compare_step_rules.py`: comparison with Polyak, constant and diminishing steps
 - `test_bundle.py`: tests, including a brute-force grid solver as a referee
-
-## Follow-up: learning t
-
-Can a neural network choose `t` better than the ×2 / ÷2 rule? MLP and LSTM
-experiments, results and lessons: [LEARNED_T.md](LEARNED_T.md).
 
 ## Run
 
 ```
-pip install matplotlib pytest
+pip install -r requirements.txt
 python knapsack.py
-python karsilastirma.py
+python compare_step_rules.py
 python -m pytest
 ```
+
+## Follow-up: learning t
+
+Can a neural network choose `t` better than the ×2 / ÷2 rule? An MLP and an
+LSTM trained in PyTorch, compared inside the bundle method:
+[LEARNED_T.md](LEARNED_T.md).
+
+![Rule vs learned t](learned_t.png)

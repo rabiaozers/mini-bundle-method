@@ -40,6 +40,8 @@ Classification accuracy on held-out data:
 What actually matters is speed. Average number of bundle iterations on 300 new
 random problems:
 
+![Rule vs learned t](learned_t.png)
+
 | how `t` is chosen | average | worst |
 |---|---|---|
 | rule (×2 / ÷2) | 3.82 | 8 |
@@ -68,18 +70,18 @@ random problems:
 
 ## Files
 
-- `veri_topla.py`: greedy teacher (`en_iyi_t_bul`) and bundle run that records one row per iteration
-- `problemler.py`: random knapsack generator, writes `veri.csv`
-- `egit.py`: MLP training (`model.pt`)
-- `lstm_egit.py`: LSTM training on per-problem sequences (`lstm.pt`)
-- `t_karsilastir.py`: rule vs teacher vs MLP vs LSTM inside the bundle method
+- `collect_data.py`: greedy teacher (`best_t`) and a bundle run that records one row per iteration
+- `problems.py`: random knapsack generator, writes `data.csv`
+- `train_mlp.py`: MLP training (`mlp.pt`)
+- `train_lstm.py`: LSTM training on per-problem sequences (`lstm.pt`)
+- `compare_t.py`: rule vs teacher vs MLP vs LSTM inside the bundle method, draws `learned_t.png`
 
 ## Run
 
 ```
-pip install torch
-python problemler.py
-python egit.py
-python lstm_egit.py
-python t_karsilastir.py
+pip install -r requirements.txt
+python problems.py
+python train_mlp.py
+python train_lstm.py
+python compare_t.py
 ```
