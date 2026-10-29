@@ -2,3 +2,4 @@ __pycache__/
 .vscode/
 veri.csv
 model.pt
+lstm.pt

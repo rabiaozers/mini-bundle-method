@@ -62,6 +62,11 @@ solvers such as SMS++ optimize Lagrangian duals.
 - `karsilastirma.py`: comparison with Polyak, constant and diminishing steps
 - `test_bundle.py`: tests, including a brute-force grid solver as a referee
 
+## Follow-up: learning t
+
+Can a neural network choose `t` better than the ×2 / ÷2 rule? MLP and LSTM
+experiments, results and lessons: [LEARNED_T.md](LEARNED_T.md).
+
 ## Run
 
 ```

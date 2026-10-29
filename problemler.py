@@ -39,6 +39,8 @@ def veri_seti_olustur(problem_sayisi):
         baslangic = random.uniform(0, 5)
         baslangic_t = random.choice([0.1, 0.5, 1, 2, 5])
         satirlar = kayitli_calistir(f, subgradient, baslangic, baslangic_t, 30)
+        for satir in satirlar :
+            satir['problem'] = p
         tum_satirlar.extend(satirlar)
     return tum_satirlar
 

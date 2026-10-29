@@ -4,6 +4,7 @@ from torch import nn
 from bundle import kesi_yap, yeni_nokta_aktif, model as harita, dogrusallastirma_hatasi
 from veri_topla import en_iyi_t_bul, T_ADAYLARI
 from problemler import knapsack_uret, rastgele_knapsack
+from lstm_egit import TModeli
 
 
 def ag_yukle(dosya_adi):
@@ -17,31 +18,43 @@ def ag_yukle(dosya_adi):
     return ag
 
 
-def ag_t_sec(ag, t, son_serious, demet, merkez, f):
-    # Compute the same 5 features as in kayitli_calistir and ask the network
+def lstm_yukle(dosya_adi):
+    lstm = TModeli()
+    lstm.load_state_dict(torch.load(dosya_adi))
+    return lstm
+
+
+def ozellikler(t, son_serious, demet, merkez, f):
+    # The same 5 features as in kayitli_calistir, scaled the same way
     x = yeni_nokta_aktif(demet, merkez, t)
     vaat = f(merkez) - harita(demet, x)
     en_buyuk_hata = max(dogrusallastirma_hatasi(k, merkez, f) for k in demet)
     girdi = torch.tensor([[t, vaat, son_serious, len(demet), en_buyuk_hata]])
-    girdi = torch.log1p(girdi)
-    sira = ag(girdi).argmax(dim=1).item()
-    return T_ADAYLARI[sira]
+    return torch.log1p(girdi)
 
 
-def tur_say(f, subgradient, baslangic_merkez, baslangic_t, yontem, ag=None, max_tur=100):
+def tur_say(f, subgradient, baslangic_merkez, baslangic_t, yontem, ag=None, lstm=None, max_tur=100):
     # Run bundle with the chosen t rule and return the number of iterations
     merkez = baslangic_merkez
     t = baslangic_t
     demet = [kesi_yap(merkez, f, subgradient)]
     son_serious = 0
+    durum = None   # LSTM memory (h, c); empty at the start of every problem
 
     for i in range(max_tur):
         if yontem == "kural":
             t_kullan = t
         elif yontem == "ogretmen":
             t_kullan = en_iyi_t_bul(demet, merkez, f)
-        else:
-            t_kullan = ag_t_sec(ag, t, son_serious, demet, merkez, f)
+        elif yontem == "mlp":
+            with torch.no_grad():
+                puanlar = ag(ozellikler(t, son_serious, demet, merkez, f))
+            t_kullan = T_ADAYLARI[puanlar.argmax().item()]
+        else:  # "lstm": one step at a time, memory carried to the next iteration
+            girdi = ozellikler(t, son_serious, demet, merkez, f).unsqueeze(0)
+            with torch.no_grad():
+                puanlar, durum = lstm(girdi, durum)
+            t_kullan = T_ADAYLARI[puanlar.argmax().item()]
 
         x = yeni_nokta_aktif(demet, merkez, t_kullan)
         if f(merkez) - harita(demet, x) < 0.000001:
@@ -61,8 +74,9 @@ def tur_say(f, subgradient, baslangic_merkez, baslangic_t, yontem, ag=None, max_
 
 if __name__ == "__main__":
     ag = ag_yukle("model.pt")
+    lstm = lstm_yukle("lstm.pt")
     random.seed(123)
-    sonuclar = {"kural": [], "ogretmen": [], "ag": []}
+    sonuclar = {"kural": [], "ogretmen": [], "mlp": [], "lstm": []}
 
     for p in range(300):
         degerler, agirliklar, kapasite = rastgele_knapsack()
@@ -70,8 +84,8 @@ if __name__ == "__main__":
         baslangic = random.uniform(0, 5)
         baslangic_t = random.choice([0.1, 0.5, 1, 2, 5])
         for yontem in sonuclar:
-            sonuclar[yontem].append(tur_say(f, subgradient, baslangic, baslangic_t, yontem, ag))
+            sonuclar[yontem].append(tur_say(f, subgradient, baslangic, baslangic_t, yontem, ag, lstm))
 
-    print("300 yeni problem, ortalama tur sayısı:")
+    print("300 new problems, average number of iterations:")
     for yontem, turlar in sonuclar.items():
-        print(f"  {yontem:9s}: {sum(turlar) / len(turlar):.2f}   (en kötü: {max(turlar)})")
+        print(f"  {yontem:9s}: {sum(turlar) / len(turlar):.2f}   (worst: {max(turlar)})")
